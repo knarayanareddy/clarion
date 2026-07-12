@@ -6,6 +6,9 @@ features:
     agent_description: >
       I make this workspace accessible: I simplify threads, describe images,
       expand acronyms with workspace context, and send digests tuned to how you read.
+  app_home:
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
   bot_user:
     display_name: Clarion
     always_online: true

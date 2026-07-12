@@ -58,7 +58,6 @@ User profile preferences:
 - Expand acronyms: ${profile.expandAcronyms ? 'Yes' : 'No'}
 
 Rules:
-- Always produce JSON only.
 - Be empathetic and precise.
 - Never invent facts.
 - For any image descriptions (if vision): describe ONLY what is visible in the image. State uncertainty explicitly. Include legible text, numbers, and labels exactly as shown.
@@ -176,7 +175,7 @@ export async function answerWithContext(
   contextSnippets: string[],
   profile: UserProfile
 ): Promise<string> {
-  const system = getSystemPrompt(profile) + '\nUse the provided workspace context snippets. Cite them explicitly if used.';
+  const system = getSystemPrompt(profile) + '\nUse the provided workspace context snippets. Cite them explicitly if used.\nAnswer in plain Slack-formatted text (mrkdwn). Do NOT return JSON or code blocks.';
 
   const prompt = `Question: ${question}
 
