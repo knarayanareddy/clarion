@@ -28,7 +28,9 @@ oauth_config:
       - commands               # /clarion
       - im:history             # agent DMs
       - channels:history       # threads + image events (public)
+      - channels:read          # channel membership for image description recipients
       - groups:history         # private channels the bot is invited to
+      - groups:read            # membership in private channels
       - files:read             # download images for description
       - search:read.public     # RTS: public messages
       - search:read.files      # RTS: files
