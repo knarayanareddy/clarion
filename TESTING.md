@@ -1,7 +1,24 @@
 # Clarion — Testing & Verification Log
 
 **Build date**: 2026-07-12 (agent build session)
-**Status**: All core MVP implemented and typechecks/build pass. **Live Slack sandbox verification pending** (no sandbox access during build).
+**Status**: Live Slack sandbox verification COMPLETE (2026-07-12). See "Live Sandbox Verification Results" below.
+
+## Live Sandbox Verification Results (2026-07-12)
+
+Verified live in the Clarion Hackathon sandbox (workspace `T0BHN1SGY6L`, app `A0BHN2LFDPA`, Socket Mode, OpenRouter `openai/gpt-4o`).
+
+| Test | Result | Notes |
+|---|---|---|
+| T1 Profile onboarding (`/clarion profile`) | ✅ PASS | Modal opens with all fields; saved values (bullet summaries, acronyms on, images on) persist on reopen |
+| T2 Agent chat loop | ✅ PASS | Welcome + suggested prompts, grounded mrkdwn reply, thread title set (after removing global JSON-only prompt, PR #3) |
+| T3 Make Accessible shortcut | ✅ PASS | Ephemeral card with TL;DR / plain rewrite / actions / terms / permalink; "Send to my DMs" delivered same card to DM. Bot must be invited to the channel (`not_in_channel` otherwise) |
+| T4 Acronym expansion | ✅ PASS (fallback) | Correct NRR definition via general-knowledge fallback. RTS `assistant.search.context` returned `invalid_action_token` in this sandbox — workspace-grounded citations remain UNVERIFIED |
+| T5 Private image descriptions | ✅ PASS | Required adding `channels:read` + `groups:read` scopes (conversations.members returned `missing_scope`) and reinstalling. After fix: opted-in user received private DM describing actual visible text/numbers ("Q3 REVENUE DASHBOARD", "$4.2M", "NRR 118%", "Churn: 2.3%"); no public channel post |
+| T6 MCP server | ✅ PASS | `tools/list` over stdio returned all 4 tools; `simplify_text` `tools/call` returned JSON with `tldr` and `plainVersion` |
+
+Known limitations observed live:
+- RTS (`assistant.search.context`) rejects the provided `action_token` in this sandbox; the app degrades gracefully to general-knowledge answers.
+- Image-description alt text renders a duplicated "Alt text:" prefix and `**bold**` markdown (cosmetic).
 
 ## Setup Verification (common to all)
 - `npm run typecheck` ✅
