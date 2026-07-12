@@ -30,8 +30,9 @@ export function registerEventListeners(app: App) {
       return;
     }
 
-    // Opted-in users who are members of this channel
-    const optedIn = getUsersWithImagesEnabled().filter(u => u !== userIdPoster);
+    // Opted-in users who are members of this channel (including the poster,
+    // who may rely on descriptions for images they share on others' behalf)
+    const optedIn = getUsersWithImagesEnabled();
     if (optedIn.length === 0) return;
 
     let members: string[] = [];
