@@ -9,7 +9,12 @@ export interface MakeAccessibleCard {
   messageTs?: string;
 }
 
-export function makeAccessibleBlocks(card: MakeAccessibleCard, userId: string): (KnownBlock | Block)[] {
+export function makeAccessibleBlocks(
+  card: MakeAccessibleCard,
+  userId: string,
+  opts: { includeSendButton?: boolean; cardKey?: string } = {}
+): (KnownBlock | Block)[] {
+  const { includeSendButton = true, cardKey } = opts;
   const blocks: (KnownBlock | Block)[] = [
     {
       type: 'header',
@@ -57,22 +62,24 @@ export function makeAccessibleBlocks(card: MakeAccessibleCard, userId: string): 
     });
   }
 
-  blocks.push({
-    type: 'actions',
-    elements: [
-      {
-        type: 'button',
-        text: { type: 'plain_text', text: 'Send to my DMs' },
-        action_id: 'send_to_dms',
-        value: JSON.stringify({ ...card, userId })
-      }
-    ]
-  });
+  if (includeSendButton && cardKey) {
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Send to my DMs' },
+          action_id: 'send_to_dms',
+          value: cardKey
+        }
+      ]
+    });
+  }
 
-  // Always set fallback text
+  const origLink = card.originalPermalink ? `<${card.originalPermalink}|original message>` : 'original message';
   blocks.push({
     type: 'context',
-    elements: [{ type: 'mrkdwn', text: `Accessibility rewrite • original message` }]
+    elements: [{ type: 'mrkdwn', text: `Accessibility rewrite • ${origLink} • only you can see this` }]
   });
 
   return blocks;

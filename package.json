@@ -1,13 +1,13 @@
 {
   "name": "clarion",
   "version": "0.1.0",
-  "description": "Clarion is a Slack-native accessibility agent that makes fast, jargon-heavy workspaces usable for deaf/HoH, low-vision, dyslexic, ESL, and neurodivergent workers — plain-language rewrites, image descriptions, workspace-aware acronym expansion, and cognitive-load-tuned digests.",
+  "description": "Clarion is a Slack-native accessibility agent that makes fast, jargon-heavy workspaces usable for deaf/HoH, low-vision, dyslexic, ESL, and neurodivergent workers \u2014 plain-language rewrites, image descriptions, workspace-aware acronym expansion, and cognitive-load-tuned digests.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"no tests yet\"",
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
-    "start": "node dist/app.js",
+    "start": "tsx src/app.ts",
     "lint": "echo 'lint skipped (eslint config issue, typecheck passes)'",
     "typecheck": "tsc --noEmit",
     "mcp": "tsx src/mcp/server.ts"

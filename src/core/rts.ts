@@ -36,15 +36,15 @@ export async function searchContext(
     const res: any = await (client as any).apiCall('assistant.search.context', {
       query,
       ...(actionToken ? { action_token: actionToken } : {}),
+      content_types: ['messages'],
       limit: 5
     });
 
-    if (!res || !res.results) return [];
-
-    return res.results.map((r: any) => ({
-      text: r.text || r.snippet || '',
-      permalink: r.permalink || r.url || undefined,
-      score: r.score
+    const messages: any[] = res?.results?.messages ?? [];
+    return messages.map((m: any) => ({
+      text: m.content || m.text || '',
+      permalink: m.permalink || undefined,
+      score: m.score
     }));
   } catch (err: any) {
     // Graceful fallback for sandboxes without AI Search (keyword mode)

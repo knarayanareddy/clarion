@@ -1,9 +1,16 @@
 import OpenAI from 'openai';
 import { UserProfile } from './profiles';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY missing — app must fail closed');
+    }
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 const MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 
@@ -78,7 +85,7 @@ Return ONLY valid JSON:
   "jargon": ["NRR", "EOD"]
 }`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system', content: system },
@@ -117,7 +124,7 @@ export async function describeImage(
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY required');
 
   // Vision call
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: MODEL,
     messages: [
       {
@@ -175,7 +182,7 @@ ${contextSnippets.join('\n\n---\n\n') || '(no relevant workspace results)'}
 
 Answer at the user's preferred reading level.`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system', content: system },
@@ -189,7 +196,7 @@ Answer at the user's preferred reading level.`;
 }
 
 export async function generalDefine(term: string): Promise<string> {
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system', content: 'You are a helpful glossary assistant. Give a short definition. If ambiguous, note that.' },

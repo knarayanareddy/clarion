@@ -3,6 +3,8 @@ import { getProfile } from '../core/profiles';
 import { simplifyText } from '../core/llm';
 import { searchContext } from '../core/rts';
 import { makeAccessibleBlocks, loadingBlocks, MakeAccessibleCard } from '../blocks/makeAccessible';
+import { storeCard } from '../core/cardCache';
+import { generalDefine } from '../core/llm';
 
 export function registerShortcutListeners(app: App) {
   // F2: Make Accessible message shortcut
@@ -65,20 +67,23 @@ export function registerShortcutListeners(app: App) {
                 isGeneral: false
               });
             } else {
-              // Fallback to general
-              const general = await import('../core/llm').then(m => m.generalDefine(term));
-              terms.push({
-                term,
-                definition: general,
-                isGeneral: true
-              });
+              const general = await generalDefine(term);
+              terms.push({ term, definition: general, isGeneral: true });
             }
           } catch (e) {
             console.warn('RTS failed for', term);
-            const general = await import('../core/llm').then(m => m.generalDefine(term));
+            const general = await generalDefine(term);
             terms.push({ term, definition: general, isGeneral: true });
           }
         }
+      }
+
+      let originalPermalink: string | undefined;
+      try {
+        const pl = await client.chat.getPermalink({ channel, message_ts: messageTs });
+        originalPermalink = pl.permalink;
+      } catch {
+        originalPermalink = `https://slack.com/archives/${channel}/p${messageTs.replace('.', '')}`;
       }
 
       const card: MakeAccessibleCard = {
@@ -86,9 +91,10 @@ export function registerShortcutListeners(app: App) {
         plainVersion: simplified.plainVersion,
         actions: simplified.actions,
         terms,
-        originalPermalink: `https://slack.com/archives/${channel}/p${messageTs.replace('.', '')}`,
+        originalPermalink,
         messageTs
       };
+      const cardKey = storeCard(card);
 
       // 4. Post ephemeral Block Kit card
       await client.chat.postEphemeral({
@@ -96,7 +102,7 @@ export function registerShortcutListeners(app: App) {
         user: userId,
         thread_ts: messageTs,
         text: `Make Accessible: ${simplified.tldr}`, // fallback text (a11y)
-        blocks: makeAccessibleBlocks(card, userId) as any
+        blocks: makeAccessibleBlocks(card, userId, { cardKey }) as any
       });
 
     } catch (err: any) {

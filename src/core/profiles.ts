@@ -1,5 +1,4 @@
 import Database from 'better-sqlite3';
-import { z } from 'zod'; // We'll use simple objects; add zod if needed later for validation
 
 export interface UserProfile {
   userId: string;
@@ -9,6 +8,7 @@ export interface UserProfile {
   digest: 'off' | 'daily';
   digestHour?: number; // 0-23
   nudgeMentions: boolean;
+  saved?: boolean; // true if the user has explicitly saved a profile
 }
 
 const defaultProfile: Omit<UserProfile, 'userId'> = {
@@ -35,7 +35,11 @@ function getDb(): Database.Database {
         digest_hour INTEGER,
         nudge_mentions INTEGER NOT NULL DEFAULT 0,
         updated_at INTEGER DEFAULT (strftime('%s','now'))
-      )
+      );
+      CREATE TABLE IF NOT EXISTS welcome_seen (
+        user_id TEXT PRIMARY KEY,
+        seen_at INTEGER DEFAULT (strftime('%s','now'))
+      );
     `);
   }
   return db;
@@ -45,10 +49,11 @@ export function getProfile(userId: string): UserProfile {
   const db = getDb();
   const row = db.prepare('SELECT * FROM profiles WHERE user_id = ?').get(userId) as any;
   if (!row) {
-    return { userId, ...defaultProfile };
+    return { userId, ...defaultProfile, saved: false };
   }
   return {
     userId,
+    saved: true,
     readingPreference: row.reading_preference as any,
     expandAcronyms: !!row.expand_acronyms,
     describeImages: !!row.describe_images,
@@ -82,10 +87,18 @@ export function saveProfile(profile: UserProfile): void {
   );
 }
 
-export function getUsersWithImagesEnabledInChannel(_channelId: string): string[] {
-  // In MVP we use global for simplicity (full impl would join channel members)
-  // For demo, return all users with describeImages=true (stub)
+export function getUsersWithImagesEnabled(): string[] {
   const db = getDb();
   const rows = db.prepare('SELECT user_id FROM profiles WHERE describe_images = 1').all() as any[];
   return rows.map(r => r.user_id);
+}
+
+export function hasSeenWelcome(userId: string): boolean {
+  const db = getDb();
+  return !!db.prepare('SELECT 1 FROM welcome_seen WHERE user_id = ?').get(userId);
+}
+
+export function markWelcomeSeen(userId: string): void {
+  const db = getDb();
+  db.prepare('INSERT OR IGNORE INTO welcome_seen (user_id) VALUES (?)').run(userId);
 }
