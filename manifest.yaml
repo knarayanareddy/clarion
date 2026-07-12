@@ -3,7 +3,6 @@ display_information:
   description: Accessibility interpreter — plain language, image descriptions, and jargon translation for every Slack workspace.
 features:
   agent_view:
-    enabled: true
     agent_description: >
       I make this workspace accessible: I simplify threads, describe images,
       expand acronyms with workspace context, and send digests tuned to how you read.
