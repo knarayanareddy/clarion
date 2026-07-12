@@ -1,0 +1,46 @@
+display_information:
+  name: Clarion
+  description: Accessibility interpreter — plain language, image descriptions, and jargon translation for every Slack workspace.
+features:
+  agent_view:
+    enabled: true
+    agent_description: >
+      I make this workspace accessible: I simplify threads, describe images,
+      expand acronyms with workspace context, and send digests tuned to how you read.
+  bot_user:
+    display_name: Clarion
+    always_online: true
+  shortcuts:
+    - name: Make Accessible
+      type: message
+      callback_id: make_accessible
+      description: Simplify, summarize, and translate this message
+  slash_commands:
+    - command: /clarion
+      description: profile | check | digest
+oauth_config:
+  scopes:
+    bot:
+      - assistant:write        # agent surface
+      - chat:write             # respond
+      - commands               # /clarion
+      - im:history             # agent DMs
+      - channels:history       # threads + image events (public)
+      - groups:history         # private channels the bot is invited to
+      - files:read             # download images for description
+      - search:read.public     # RTS: public messages
+      - search:read.files      # RTS: files
+      - search:read.users      # RTS: user lookup
+      - users:read             # profile display names
+      - reactions:read         # nudge feature (has the user reacted?)
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_home_opened
+      - app_context_changed
+      - message.im
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: true
+  socket_mode_enabled: true
