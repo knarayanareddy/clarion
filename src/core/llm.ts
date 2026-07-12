@@ -1,18 +1,59 @@
 import OpenAI from 'openai';
 import { UserProfile } from './profiles';
 
+// API keys: OPENROUTER_API_KEYS (comma-separated, rotated on quota/auth
+// exhaustion) takes precedence over the single OPENAI_API_KEY.
+function getApiKeys(): string[] {
+  const multi = (process.env.OPENROUTER_API_KEYS || '')
+    .split(',')
+    .map(k => k.trim())
+    .filter(Boolean);
+  if (multi.length > 0) return multi;
+  return process.env.OPENAI_API_KEY ? [process.env.OPENAI_API_KEY] : [];
+}
+
+let keyIndex = 0;
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!_openai) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY missing — app must fail closed');
+    const keys = getApiKeys();
+    if (keys.length === 0) {
+      throw new Error('OPENROUTER_API_KEYS or OPENAI_API_KEY missing — app must fail closed');
     }
     _openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: keys[keyIndex % keys.length],
       ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
     });
   }
   return _openai;
+}
+
+function isKeyExhaustedError(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  if (status === 401 || status === 402 || status === 403) return true;
+  const msg = (err as Error)?.message?.toLowerCase() || '';
+  return msg.includes('quota') || msg.includes('credit') || msg.includes('payment');
+}
+
+type ChatParams = Omit<OpenAI.Chat.ChatCompletionCreateParamsNonStreaming, 'model'>;
+
+// Runs a chat completion, rotating to the next API key when the current one
+// is exhausted (auth/quota/credit errors). Tries each key at most once.
+async function createChatCompletion(params: ChatParams): Promise<OpenAI.Chat.ChatCompletion> {
+  const keys = getApiKeys();
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < Math.max(keys.length, 1); attempt++) {
+    try {
+      return await getOpenAI().chat.completions.create({ model: MODEL, ...params });
+    } catch (err) {
+      lastErr = err;
+      if (!isKeyExhaustedError(err) || keys.length < 2) throw err;
+      keyIndex = (keyIndex + 1) % keys.length;
+      _openai = null;
+      console.warn(`LLM key exhausted; rotating to key ${keyIndex + 1}/${keys.length}`);
+    }
+  }
+  throw lastErr;
 }
 
 const MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
@@ -69,8 +110,8 @@ export async function simplifyText(
   threadText: string,
   profile: UserProfile
 ): Promise<SimplifyResult> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY missing — app must fail closed');
+  if (getApiKeys().length === 0) {
+    throw new Error('OPENROUTER_API_KEYS or OPENAI_API_KEY missing — app must fail closed');
   }
 
   const system = getSystemPrompt(profile);
@@ -87,8 +128,7 @@ Return ONLY valid JSON:
   "jargon": ["NRR", "EOD"]
 }`;
 
-  const completion = await getOpenAI().chat.completions.create({
-    model: MODEL,
+  const completion = await createChatCompletion({
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: userPrompt }
@@ -123,11 +163,10 @@ export async function describeImage(
   imageUrl: string,
   profile: UserProfile
 ): Promise<DescribeResult> {
-  if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY required');
+  if (getApiKeys().length === 0) throw new Error('OPENROUTER_API_KEYS or OPENAI_API_KEY required');
 
   // Vision call
-  const response = await getOpenAI().chat.completions.create({
-    model: MODEL,
+  const response = await createChatCompletion({
     messages: [
       {
         role: 'system',
@@ -184,8 +223,7 @@ ${contextSnippets.join('\n\n---\n\n') || '(no relevant workspace results)'}
 
 Answer at the user's preferred reading level.`;
 
-  const completion = await getOpenAI().chat.completions.create({
-    model: MODEL,
+  const completion = await createChatCompletion({
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: prompt }
@@ -198,8 +236,7 @@ Answer at the user's preferred reading level.`;
 }
 
 export async function generalDefine(term: string): Promise<string> {
-  const completion = await getOpenAI().chat.completions.create({
-    model: MODEL,
+  const completion = await createChatCompletion({
     messages: [
       { role: 'system', content: 'You are a helpful glossary assistant. Give a short definition. If ambiguous, note that.' },
       { role: 'user', content: `What does "${term}" mean?` }
