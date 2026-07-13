@@ -1,48 +1,70 @@
 # Clarion
 
-**Clarion** is a Slack-native accessibility agent that makes fast, jargon-heavy workspaces usable for deaf/HoH, low-vision, dyslexic, ESL, and neurodivergent workers — plain-language rewrites, image descriptions, workspace-aware acronym expansion, and cognitive-load-tuned digests.
+**Clarion** is a Slack-native accessibility agent that makes fast, jargon-heavy workspaces usable for deaf/HoH, low-vision, dyslexic, ESL, and neurodivergent workers — plain-language rewrites, private image descriptions, workspace-aware acronym expansion, and per-user accessibility profiles.
 
 Built for the **Slack Agent Builder Challenge** (Slack Agent for Good track).
 
-## Features (MVP — F5 → F1 → F2 → F3 → F4)
+> **Status:** Fully built and **live-tested end-to-end in a real Slack Developer sandbox** (`clarion-hackathon.enterprise.slack.com`). The bot runs 24/7 on an always-on cloud VM via Socket Mode. See [`test-report.md`](test-report.md) for the full live verification results.
 
-- **F5: Agent chat loop** (first): Agent panel, welcome + suggested prompts, DM responses with thinking status + titles, context-aware via `app_context_changed`.
-- **F1: Profiles**: Opt-in profile modal (reading style, acronyms, images, digest, nudges). Stored in SQLite. `/clarion profile`. Profile tunes all LLM output.
-- **F2: Make Accessible** (demo centerpiece): Message shortcut on any thread. Fetches full thread (incl. deep replies), LLM simplify + Block Kit card with TL;DR / Plain / Actions / Terms. "Send to my DMs".
-- **F3: Workspace RTS acronym expansion**: Terms in F2 + standalone DMs use `assistant.search.context` (with proper `action_token` plumbing) for workspace-specific definitions + permalinks. Graceful general fallback.
-- **F4: Image descriptions**: On file_share in channels where agent invited + users have "describe images: on", DMs alt-text + detailed vision description (GPT-4o) within ~30s. Rate-limited + size guard.
-- **MCP server**: Standalone `npm run mcp` exposing 4 tools (`simplify_text`, `describe_image`, `expand_acronym`, `accessibility_lint`) reusing core logic.
+## Architecture
 
-**Stretch** (not yet built in this MVP): Daily digests (F6), nudges (F7), `/clarion check` lint (F8).
+![Clarion architecture](docs/assets/architecture.png)
+
+## Features
+
+- **Agent chat loop**: Slack agent panel with welcome message + suggested prompts, thinking status + thread titles (`assistant.threads.*`), profile-aware replies, context-aware via `app_context_changed`.
+- **Accessibility profiles**: Opt-in profile modal (reading style, acronym expansion, image descriptions) via `/clarion profile`. Stored in SQLite; every LLM response adapts to the user's profile.
+- **Make Accessible** (demo centerpiece): Message shortcut on any message/thread. Fetches the full thread, then returns a private ephemeral Block Kit card with TL;DR / Plain-language rewrite / Action items / Terms expanded, plus a "Send to my DMs" button.
+- **Workspace acronym expansion**: Uses Slack's **Real-Time Search** (`assistant.search.context` with `action_token` plumbing) for workspace-specific definitions with citations + permalinks, with a graceful general-knowledge fallback.
+- **Private image descriptions**: On `file_share` in channels where the bot is invited, opted-in users (including the poster) get a private DM with concise alt text + a detailed vision description (GPT-4o vision) — nothing is posted publicly.
+- **MCP server**: Standalone `npm run mcp` exposing 4 tools over stdio (`simplify_text`, `describe_image`, `expand_acronym`, `accessibility_lint`) reusing the core logic.
+
+## Qualifying Slack technologies (all three)
+
+1. **Slack agent surface / AI capabilities** — agent panel, suggested prompts, `assistant.threads.*`
+2. **Real-Time Search API** — workspace-grounded acronym expansion (with graceful fallback; see limitations)
+3. **MCP server integration** — four Clarion tools over stdio
 
 ## Tech
 
 - **Bolt for JavaScript v4** + **Socket Mode** (no public URL)
-- **OpenAI GPT-4o** (text + vision)
-- **SQLite** (better-sqlite3) — only profiles + minimal cache
+- **GPT-4o** (text + vision) via an OpenAI-compatible API (OpenRouter), with automatic rotation across a pool of API keys on quota exhaustion
+- **SQLite** (better-sqlite3) — only profiles + opt-ins
 - **TypeScript** (strict)
 - **MCP** via `@modelcontextprotocol/sdk`
 
-No message bodies or images stored (privacy).
+No message bodies or images are ever stored (privacy by design).
 
-## Quick Start (for handoff engineer)
+## Live verification
 
-1. Join [Slack Developer Program](https://api.slack.com/developer-program) and provision a sandbox (request **Slack AI Search** enabled).
-2. Create app **from manifest**:
-   - Go to https://api.slack.com/apps → Create New App → From an app manifest
-   - Paste contents of `manifest.yaml`
+All six test categories passed live in the sandbox (see [`test-report.md`](test-report.md)):
+
+| Test | Result |
+|---|---|
+| Profile onboarding & persistence | PASS |
+| Agent chat loop | PASS |
+| Make Accessible + Send to my DMs | PASS |
+| Acronym expansion | PASS (general-knowledge fallback; RTS grounding unverified in this sandbox — see limitations) |
+| Private image descriptions | PASS |
+| MCP tools over stdio | PASS |
+
+Judges (`slackhack@salesforce.com`, `testing@devpost.com`) have been invited to the sandbox.
+
+## Quick Start
+
+1. Join the [Slack Developer Program](https://api.slack.com/developer-program) and provision a sandbox (Slack AI Search enabled for best RTS results).
+2. Create an app **from manifest**: https://api.slack.com/apps → Create New App → From an app manifest → paste `manifest.yaml`.
 3. Install to your sandbox workspace.
 4. Copy tokens:
    - Bot User OAuth Token → `SLACK_BOT_TOKEN`
    - App-Level Token (connections:write) → `SLACK_APP_TOKEN`
-   - (Optional) User token for RTS/digests → `SLACK_USER_TOKEN`
-5. Get OpenAI key → `OPENAI_API_KEY`
+5. Get an LLM key: either `OPENAI_API_KEY`, or an OpenRouter key with `OPENAI_BASE_URL=https://openrouter.ai/api/v1` (multiple keys supported via `OPENROUTER_API_KEYS`, comma-separated).
 6. Copy `.env.example` → `.env` and fill.
 7. `npm install`
-8. `npm run dev` (or `npm start` after build)
-9. In Slack: Open agent from top bar or DM the bot.
+8. `npm start` (or `npm run dev` for watch mode)
+9. In Slack: open the Clarion agent from the top bar, or run `/clarion profile`, or use the "Make Accessible" message shortcut (invite the bot to the channel first).
 
-**Manual verification steps** are in `TESTING.md`.
+Manual verification steps are in `TESTING.md`.
 
 ## Scripts
 
@@ -52,31 +74,22 @@ No message bodies or images stored (privacy).
 - `npm run typecheck`
 - `npm run mcp` — start MCP server (for inspector or clients)
 
-## Deliverables
-
-See `TESTING.md`, `DECISIONS.md`, `PLAN.md`.
-
 ## Known Limitations (honest)
 
-- Requires a Slack sandbox with AI Search for best RTS results (falls back to keyword/general).
-- Image descriptions require bot invited to channel.
-- `action_token` plumbing is complex — tested in code paths.
-- No live cron digests/nudges in this build (stretch cut).
-- No real-time rate limiting DB for images (in-memory stub).
-- MCP verified via inspector (not yet connected to Slackbot MCP Client).
-- **All verification in this repo was local + simulated.** Live Slack sandbox verification must be performed by the next engineer.
-
-## Architecture
-
-See `architecture.md` (Mermaid) + diagram to be rendered.
+- Workspace-grounded RTS citations could not be verified in this sandbox (`assistant.search.context` returned `invalid_action_token`); the app degrades gracefully to general-knowledge definitions.
+- Image descriptions require the bot to be invited to the channel.
+- Image rate limiting is in-memory (process-local).
+- MCP verified over stdio (not connected to the Slackbot MCP client).
+- Daily digests / nudges / lint command were stretch features and are not in this build.
 
 ## Privacy & Compliance
 
 - Opt-in only
-- Dignity by default (ephemeral + DM only)
+- Dignity by default (ephemeral cards + private DMs — nothing posted publicly)
 - No persistent storage of message content or images
-- OpenAI calls: no training
 
----
+## Docs
 
-Handoff from agent build: full MVP code + per-feature commits + docs ready for sandbox integration + video.
+- [`test-report.md`](test-report.md) — live sandbox test results
+- `TESTING.md` — manual verification checklists
+- `DECISIONS.md`, `PLAN.md`, `architecture.md` — build notes
