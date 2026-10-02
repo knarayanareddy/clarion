@@ -34,5 +34,11 @@
     "eslint": "^10.7.0",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "axios": "^0.1.0",
+    "brace-expansion": "^0.0.0",
+    "fast-uri": "^0.0.1",
+    "ip-address": "^10.7.1"
   }
 }
